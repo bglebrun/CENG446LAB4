@@ -36,9 +36,13 @@ static CPU_STK autoShiftStk[APP_CFG_TASK_START_STK_SIZE];
 static OS_TCB  manualShiftTCB;
 static CPU_STK manualShiftStk[APP_CFG_TASK_START_STK_SIZE];
 
-static OS_TCB  inputTCB;
-static CPU_STK inputStk[APP_CFG_TASK_START_STK_SIZE];
+static OS_TCB  modeTCB;
+static CPU_STK modeStk[APP_CFG_TASK_START_STK_SIZE];
 
+static OS_TCB  shiftLightTCB;
+static CPU_STK shiftLightStk[APP_CFG_TASK_START_STK_SIZE];
+
+//Mode is default to auto (0), manual (1);
 int mode = 0;
 
 /*
@@ -56,7 +60,8 @@ static void  upShift(void *data);
 static void  downShift(void *data);
 static void  autoShift(void *data);
 static void  manualShift(void *data);
-static void  input(void *data);
+static void  modeSwitch(void);
+static void  shiftLight(void *data);
 
 
 //Data structure to hold all info passed from PC
@@ -237,12 +242,27 @@ static  void  App_TaskCreate (void)
             (OS_ERR *)&err);
     
     //Create toggleMode task
-    OSTaskCreate((OS_TCB *)&inputTCB,
+    OSTaskCreate((OS_TCB *)&modeTCB,
             (CPU_CHAR *)"A/M mode Control",
-            (OS_TASK_PTR)input,
+            (OS_TASK_PTR)mode,
             (void *)0,
             (OS_PRIO )2,
-            (CPU_STK *)&inputStk[0],
+            (CPU_STK *)&modeStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
+    
+    //Create task for shift light
+    OSTaskCreate((OS_TCB *)&shiftLightTCB,
+            (CPU_CHAR *)"Shift Light",
+            (OS_TASK_PTR)shiftLight,
+            (void *)0,
+            (OS_PRIO )6,
+            (CPU_STK *)&shiftLightStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
             (OS_MSG_QTY)0,
@@ -271,6 +291,33 @@ static  void  App_TaskCreate (void)
 
 static  void  App_ObjCreate (void)
 {
+}
+
+/*Task has highest priority, triggers the switch between aut and manual mode
+ * mode = 0 for auto
+ * mode = 1 for manual
+*/
+static void  modeSwitch(void)
+{
+    OS_ERR err;
+    CPU_TS ts;
+    
+    //Wait forever until interrupt triggers mode change
+    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+    
+    while(1)
+    {
+        if( mode == 0 )
+        {
+            mode = 1;
+            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+            break;
+        }
+        if( mode == 1 )
+        {
+            mode = 0;
+        }
+    } 
 }
 
 //Transmission Functions
@@ -322,10 +369,16 @@ static void  manualShift(void *data)
 //Function to shift up one gear
 static void  upShift(void *data)
 {
-    car.
+    
 }
 
 //Function to shift down one gear
 static void  downShift(void *data)
 {
+    
+}
+
+static void shiftLight(void *data)
+{
+    
 }
