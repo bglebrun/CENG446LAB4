@@ -56,8 +56,8 @@ static  void  App_ObjCreate   (void);
 
 static  void  App_TaskStart   (void  *p_arg);
 
-static void  upShift();
-static void  downShift();
+void  upShift();
+void  downShift();
 static void  autoShift(void *data);
 static void  manualShift(void *data);
 static void  modeSwitch(void);
@@ -334,12 +334,16 @@ static void  autoShift(void *data)
     struct Data car;
     OS_ERR err;
     CPU_TS ts;
+    int32_t RPM_Dat = 0;
 
     while(1)
     {
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FILL IN THIS SHIT!!!!!!!!!!!!!!!!!!!!!!
         //Get data for RPM and current gear
         //car.RPM = ;
+        //car.MaxRPM = ;
         //car.GearCurrent = ;
+        //car.GearMax = ;
 
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
@@ -359,7 +363,7 @@ static void  autoShift(void *data)
             break;
         }
         //Now send the data to the shiftLight task and pend
-        shiftLight(&car);
+        OSTaskSemPost(&shiftLightTCB,OS_OPT_POST_NONE,&err);
         OSTaskSemPend(10000, OS_OPT_PEND_BLOCKING, &ts, &err);
 
     }
@@ -370,51 +374,90 @@ static void  manualShift(void *data)
 {
     OS_ERR err;
     CPU_TS ts;
+    int upShiftPin = 0;
+    int downShiftPin = 0;
 
     //Pend waiting for autoShift to go to sleep
     OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
     while(1)
     {
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FILL IN THIS SHIT!!!!!!!!!!!!!!!!!!!!!!
+        //Get data for RPM and current gear
+        //car.RPM = ;
+        //car.MaxRPM = ;
+        //car.GearCurrent = ;
+        //car.GearMax = ;
+       //Check if return to auto shift mode required
        if(mode == 0)
        {
            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+       }
+       
+       //Check if Neutral shift activated
+       if( upShiftPin == 1 && downShiftPin == 1 )
+       {
+           
+       }
+       
+       //UP Shift triggered
+       if( upShiftPin == 1 && downShiftPin == 0 )
+       {
+           upShift();
+           break;
+       }
+       //Down Shift triggered
+       if( downShiftPin == 1 && upShiftPin == 0 )
+       {
+           downShift();
+           break;
        }
 
     }
 }
 
 //Function to shift up one gear
-static void  upShift()
+void  upShift()
 {
 
 }
 
 //Function to shift down one gear
-static void  downShift()
+void  downShift()
 {
 
 }
 
-static void shiftLight(void *data)
+static void  shiftLight(void *data)
 {
     struct Data car;
+    OS_ERR err;
+    CPU_TS ts;
+    
     //LED order BGR
     int8_t LED = 00000000;
     //Output to shift light and gear display
     //Green LED no shift needed
-    if( car.RPM < (0.81 * car.MaxRPM ))
+    while(1)
     {
-        //Light Green LED pin others 0
-        LED = 0b00000010;
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+        
+        if( car.RPM < (0.81 * car.MaxRPM ))
+        {
+            //Light Green LED pin others 0
+            LED = 0b00000010;
+            break;
+        }
+        //Blue LED shift soon
+        if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.96*car.MaxRPM))
+        {
+            LED = 0b00000100;
+            break;
+        }
+        //Red LED, Drive like you stole it
+        if( car.RPM >= ( 0.95 * car.MaxRPM ))
+        {
+            LED = 0b00000001;
+            break;
+        }
     }
-    //Blue LED shift soon
-    if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.96*car.MaxRPM))
-    {
-        LED = 0b00000100;
-    }
-    //Red LED, Drive like you stole it
-    if( car.RPM >= ( 0.95 * car.MaxRPM ))
-    {
-        LED = 0b00000001;
-    }  
 }
