@@ -302,20 +302,25 @@ static void  modeSwitch(void)
     OS_ERR err;
     CPU_TS ts;
     
-    //Wait forever until interrupt triggers mode change
-    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+    
     
     while(1)
     {
+        //Wait forever until interrupt triggers mode change
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+        
+        //Once ISR triggers function toggle mode
         if( mode == 0 )
         {
             mode = 1;
-            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+            //After mode toggled return to pending state
             break;
         }
         if( mode == 1 )
         {
             mode = 0;
+            //After mode toggled return to pending state
+            break;
         }
     } 
 }
@@ -330,6 +335,10 @@ static void  autoShift(void *data)
     
     while(1)
     {
+        //Get data for RPM and current gear
+        //car.RPM = ;
+        //car.GearCurrent = ;
+        
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
         {
@@ -338,13 +347,19 @@ static void  autoShift(void *data)
         //If RPM is within 5% of redline shift up
         if(car.RPM >= (0.95*car.MaxRPM))
         {
-            upShift(&car);
+            upShift();
+            break;
         }
         //If RPM is falling shift to lower gear
         if(car.RPM <= 1350)
         {
-            downShift(&car);
+            downShift();
+            break;
         }
+        //Now send the data to the shiftLight task and pend
+        shiftLight(&car);
+        OSTaskSemPend(10000, OS_OPT_PEND_BLOCKING, &ts, &err);
+        
     }
 }
     
@@ -367,18 +382,21 @@ static void  manualShift(void *data)
 }
 
 //Function to shift up one gear
-static void  upShift(void *data)
+static void  upShift(void)
 {
     
 }
 
 //Function to shift down one gear
-static void  downShift(void *data)
+static void  downShift(void)
 {
     
 }
 
 static void shiftLight(void *data)
 {
+    //Output to shift light and gear display
+    
+    
     
 }
