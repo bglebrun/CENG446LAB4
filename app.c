@@ -14,6 +14,44 @@
 */
 
 #include <includes.h>
+#define _SUPPRESS_PLIB_WARNING 1
+
+
+//-----------------------------------------------------------------------
+// ADC FUNCTIONS
+//-----------------------------------------------------------------------
+#define POT     0      // 10k potentiometer on AN2 input
+// I/O bits set as analog in by setting corresponding bits to 0
+#define AINPUTS 0xfffe // Analog inputs for POT pin A0 (AN2)
+#define GEAR_R LATBbits.LATB15
+#define GEAR_N LATBbits.LATB14
+#define GEAR_1 LATBbits.LATB8
+#define GEAR_2 LATBbits.LATB9
+#define GEAR_3 LATBbits.LATB10
+#define GEAR_4 LATBbits.LATB11
+#define GEAR_5 LATBbits.LATB12
+#define GEAR_6 LATBbits.LATB13
+#define MODE_SWITCH PORTBbits.RB1
+#define GEAR_DOWN PORTBbits.RB2
+#define GEAR_UP PORTBbits.RB3
+
+// initialize the ADC for single conversion, select input pins
+
+void initADC(int amask) {
+    AD1PCFG = amask; // select analog input pins
+    AD1CON1 = 0x00E0; // auto convert after end of sampling
+    AD1CSSL = 0; // no scanning required
+    AD1CON2 = 0; // use MUXA, AVss/AVdd used as Vref+/-
+    AD1CON3 = 0x1F3F; // max sample time = 31Tad
+    AD1CON1SET = 0x8000; // turn on the ADC
+} //initADC
+
+int readADC(int ch) {
+    AD1CHSbits.CH0SA = ch; // select analog input channel
+    AD1CON1bits.SAMP = 1; // start sampling
+    while (!AD1CON1bits.DONE); // wait to complete conversion
+    return ADC1BUF0; // read the conversion result
+} // readADC
 
 /*
 *********************************************************************************************************
@@ -149,15 +187,50 @@ static  void  App_TaskStart (void *p_arg)
     CPU_IntDisMeasMaxCurReset();
 #endif
 
-    // mPortAConfig(IOPORT_BIT_24);
+  initADC(AINPUTS); // init ADC
+  AD1PCFG = 0xFFFF;
+  // Define i/o modes
+  TRISBbits.TRISB5 = 0;
+  TRISBbits.TRISB6 = 0;
+  TRISBbits.TRISB7 = 0;
+  TRISBbits.TRISB8 = 0;
+  TRISBbits.TRISB9 = 0;
+  TRISBbits.TRISB10 = 0;
+  TRISBbits.TRISB11 = 0;
+  TRISBbits.TRISB12 = 0;
+  TRISBbits.TRISB13 = 0;
+  TRISBbits.TRISB14 = 0;
+  TRISBbits.TRISB15 = 0;
+  TRISBbits.TRISB4 = 1;
+  TRISBbits.TRISB3 = 1;
+  TRISBbits.TRISB2 = 1;
+  TRISBbits.TRISB1 = 1;
+
+  int var = 0;
+  int out = 1;
+
 
     App_TaskCreate();                                           /* Create Application tasks                             */
 
     App_ObjCreate();                                            /* Create Applicaiton kernel objects                    */
 
     while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
-        calcVals();
-        OSTimeDlyHMSM(0u, 0u, 0, 100u,
+      /*
+      var = GEAR_UP;
+      if (var == 1) {
+        out = !out;
+      }
+*/
+      GEAR_R = out;
+      GEAR_N = out;
+      GEAR_1 = out;
+      GEAR_2 = out;
+      GEAR_3 = out;
+      GEAR_4 = out;
+      GEAR_5 = out;
+      GEAR_6 = out;
+
+      OSTimeDlyHMSM(0u, 0u, 0, 10u,
                       OS_OPT_TIME_HMSM_STRICT,
                       &err);
     }
@@ -348,14 +421,15 @@ static void  autoShift(void *data)
         //car.MaxRPM = ;
         //car.GearCurrent = ;
         //car.GearMax = ;
-        
+        RPM_Dat = readADC(POT);
+
         //Check if push button triggers manual mode
         /*if(modePin == 1 )
         {
             OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
         }
         */
-        
+
 
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
@@ -399,26 +473,26 @@ static void  manualShift(void *data)
         //car.MaxRPM = ;
         //car.GearCurrent = ;
         //car.GearMax = ;
-        
+
         //Check if push button triggers automatic mode
         /*if(modePin == 1 )
         {
             OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
         }
         */
-        
+
        //Check if return to auto shift mode required
        if(mode == 0)
        {
            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
        }
-       
+
        //Check if Neutral shift activated
        if( upShiftPin == 1 && downShiftPin == 1 )
        {
-           
+
        }
-       
+
        //UP Shift triggered
        if( upShiftPin == 1 && downShiftPin == 0 )
        {
@@ -452,7 +526,7 @@ static void  shiftLight(void *data)
     struct Data car;
     OS_ERR err;
     CPU_TS ts;
-    
+
     //LED order BGR
     int8_t LED = 00000000;
     //Output to shift light and gear display
@@ -460,7 +534,7 @@ static void  shiftLight(void *data)
     while(1)
     {
         OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
-        
+
         if( car.RPM < (0.81 * car.MaxRPM ))
         {
             //Light Green LED pin others 0
