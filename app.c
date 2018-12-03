@@ -397,8 +397,24 @@ static void  downShift()
 
 static void shiftLight(void *data)
 {
+    struct Data car;
+    //LED order BGR
+    int8_t LED = 00000000;
     //Output to shift light and gear display
-
-
-
+    //Green LED no shift needed
+    if( car.RPM < (0.81 * car.MaxRPM ))
+    {
+        //Light Green LED pin others 0
+        LED = 0b00000010;
+    }
+    //Blue LED shift soon
+    if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.96*car.MaxRPM))
+    {
+        LED = 0b00000100;
+    }
+    //Red LED, Drive like you stole it
+    if( car.RPM >= ( 0.95 * car.MaxRPM ))
+    {
+        LED = 0b00000001;
+    }  
 }
