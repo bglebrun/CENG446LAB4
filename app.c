@@ -14,6 +14,7 @@
 */
 
 #include <includes.h>
+#include <bsp.h>
 #define _SUPPRESS_PLIB_WARNING 1
 
 
@@ -23,6 +24,7 @@
 #define POT     0      // 10k potentiometer on AN2 input
 // I/O bits set as analog in by setting corresponding bits to 0
 #define AINPUTS 0xfffe // Analog inputs for POT pin A0 (AN2)
+//Output Pins
 #define GEAR_R LATBbits.LATB15
 #define GEAR_N LATBbits.LATB14
 #define GEAR_1 LATBbits.LATB8
@@ -31,10 +33,14 @@
 #define GEAR_4 LATBbits.LATB11
 #define GEAR_5 LATBbits.LATB12
 #define GEAR_6 LATBbits.LATB13
-#define MODE_SWITCH PORTBbits.RB1
-#define GEAR_DOWN PORTBbits.RB2
-#define GEAR_UP PORTBbits.RB3
+#define BLUE LATBbits.LATB3
+#define GREEN LATBbits.LATB4
+#define RED LATBbits.LATB5
 
+//Input Buttons
+#define MODE_SWITCH BTN1
+#define GEAR_DOWN BTN2
+#define GEAR_UP BTN3
 // initialize the ADC for single conversion, select input pins
 
 void initADC(int amask) {
@@ -190,6 +196,7 @@ static  void  App_TaskStart (void *p_arg)
   initADC(AINPUTS); // init ADC
   AD1PCFG = 0xFFFF;
   // Define i/o modes
+  TRISBbits.TRISB4 = 0;
   TRISBbits.TRISB5 = 0;
   TRISBbits.TRISB6 = 0;
   TRISBbits.TRISB7 = 0;
@@ -201,13 +208,9 @@ static  void  App_TaskStart (void *p_arg)
   TRISBbits.TRISB13 = 0;
   TRISBbits.TRISB14 = 0;
   TRISBbits.TRISB15 = 0;
-  TRISBbits.TRISB4 = 1;
-  TRISBbits.TRISB3 = 1;
-  TRISBbits.TRISB2 = 1;
-  TRISBbits.TRISB1 = 1;
 
-  int var = 0;
-  int out = 1;
+  int gear = 0;
+  //int out = 1;
 
 
     App_TaskCreate();                                           /* Create Application tasks                             */
@@ -215,24 +218,23 @@ static  void  App_TaskStart (void *p_arg)
     App_ObjCreate();                                            /* Create Applicaiton kernel objects                    */
 
     while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
-      /*
-      var = GEAR_UP;
-      if (var == 1) {
-        out = !out;
-      }
-*/
-      GEAR_R = out;
-      GEAR_N = out;
-      GEAR_1 = out;
-      GEAR_2 = out;
-      GEAR_3 = out;
-      GEAR_4 = out;
-      GEAR_5 = out;
-      GEAR_6 = out;
 
-      OSTimeDlyHMSM(0u, 0u, 0, 10u,
-                      OS_OPT_TIME_HMSM_STRICT,
-                      &err);
+        gear = readADC(POT);
+        // 1024
+        GEAR_R = gear < (1024/8*1) ;
+        GEAR_N = gear < (1024/8*2) ;
+        GEAR_1 = gear < (1024/8*3) ;
+        GEAR_2 = gear < (1024/8*4) ;
+        GEAR_3 = gear < (1024/8*5) ;
+        GEAR_4 = gear < (1024/8*6) ;
+        GEAR_5 = gear < (1024/8*7) ;
+        GEAR_6 = gear < (1024/8*8) ;
+
+      /*
+      BLUE =var;
+      GREEN = var;
+      RED = var;
+*/
     }
 }
 
@@ -421,7 +423,7 @@ static void  autoShift(void *data)
         //car.MaxRPM = ;
         //car.GearCurrent = ;
         //car.GearMax = ;
-        RPM_Dat = readADC(POT);
+        // RPM_Dat = readADC(POT);
 
         //Check if push button triggers manual mode
         /*if(modePin == 1 )

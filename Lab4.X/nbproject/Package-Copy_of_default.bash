@@ -6,13 +6,13 @@
 
 # Macros
 TOP=`pwd`
-CND_CONF=default
+CND_CONF=Copy_of_default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/example1.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-OUTPUT_BASENAME=example1.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-PACKAGE_TOP_DIR=example1.x/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/Lab4.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=Lab4.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+PACKAGE_TOP_DIR=lab4.x/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/example1.x/bin
+makeDirectory ${TMPDIR}/lab4.x/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/example1.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/lab4.x.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/example1.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/lab4.x.tar *
 checkReturnCode
 
 # Cleanup
