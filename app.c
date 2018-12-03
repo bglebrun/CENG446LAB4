@@ -188,7 +188,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Up Shift",
             (OS_TASK_PTR)upShift,
             (void *)0,
-            (OS_PRIO )5,
+            (OS_PRIO )4,
             (CPU_STK *)&upShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -203,7 +203,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Down Shift",
             (OS_TASK_PTR)downShift,
             (void *)0,
-            (OS_PRIO )5,
+            (OS_PRIO )4,
             (CPU_STK *)&downShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -233,7 +233,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Manual Shift",
             (OS_TASK_PTR)manualShift,
             (void *)0,
-            (OS_PRIO )4,
+            (OS_PRIO )3,
             (CPU_STK *)&manualShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -263,7 +263,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Shift Light",
             (OS_TASK_PTR)shiftLight,
             (void *)0,
-            (OS_PRIO )6,
+            (OS_PRIO )5,
             (CPU_STK *)&shiftLightStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -315,12 +315,16 @@ static void  modeSwitch(void)
         if( mode == 0 )
         {
             mode = 1;
+            //post to manual mode semaphore
+            OSTaskSemPost(&manualShiftTCB,OS_OPT_POST_NONE,&err);
             //After mode toggled return to pending state
             break;
         }
         if( mode == 1 )
         {
             mode = 0;
+            //post to auto mode semaphore
+            OSTaskSemPost(&autoShiftTCB,OS_OPT_POST_NONE,&err);
             //After mode toggled return to pending state
             break;
         }
@@ -344,6 +348,14 @@ static void  autoShift(void *data)
         //car.MaxRPM = ;
         //car.GearCurrent = ;
         //car.GearMax = ;
+        
+        //Check if push button triggers manual mode
+        /*if(modePin == 1 )
+        {
+            OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
+        }
+        */
+        
 
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
@@ -387,6 +399,14 @@ static void  manualShift(void *data)
         //car.MaxRPM = ;
         //car.GearCurrent = ;
         //car.GearMax = ;
+        
+        //Check if push button triggers automatic mode
+        /*if(modePin == 1 )
+        {
+            OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
+        }
+        */
+        
        //Check if return to auto shift mode required
        if(mode == 0)
        {
