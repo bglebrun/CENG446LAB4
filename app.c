@@ -41,6 +41,11 @@
 #define MODE_SWITCH BTN1
 #define GEAR_DOWN BTN2
 #define GEAR_UP BTN3
+/*
+#define MODE_SWITCH PORTBbits.RB1
+#define GEAR_DOWN PORTBbits.RB2
+#define GEAR_UP PORTBbits.RB3
+*/
 // initialize the ADC for single conversion, select input pins
 
 void initADC(int amask) {
@@ -100,23 +105,18 @@ static  void  App_ObjCreate   (void);
 
 static  void  App_TaskStart   (void  *p_arg);
 
-void  upShift();
-void  downShift();
-static void  autoShift(void *data);
-static void  manualShift(void *data);
-static void  modeSwitch(void);
-static void  shiftLight(void *data);
+static  void  upShift(void *data);
+static  void  downShift(void *data);
+static  void  autoShift(void *data);
+static  void  manualShift(void *data);
+static  void  modeSwitch(void);
+static  void  shiftLight(void *data);
 
 
-//Data structure to hold all info passed from PC
-struct Data
-{
-	float RPM;
-    float MaxRPM;
-	int GearCurrent;
-	int GearMax;
-	float Throttle;
-};
+//Global Vars and constants for shifting
+const float MaxRPM = 1024;
+int GearCurrent = 1;
+const	int GearMax = 6;
 
 /*
 *********************************************************************************************************
@@ -208,9 +208,19 @@ static  void  App_TaskStart (void *p_arg)
   TRISBbits.TRISB13 = 0;
   TRISBbits.TRISB14 = 0;
   TRISBbits.TRISB15 = 0;
-
+  /*
+  TRISBbits.TRISB4 = 1;
+  TRISBbits.TRISB3 = 1;
+  TRISBbits.TRISB2 = 1;
+  TRISBbits.TRISB1 = 1;
+  */
+  /*TRISBbits.BTN1 = 1;
+  TRISBbits.BTN2 = 1;
+  TRISBbits.BTN3 = 1;
+  TRISBbits.BTN4 = 1;
+   * */
   int gear = 0;
-  //int out = 1;
+  int out = 1;
 
 
     App_TaskCreate();                                           /* Create Application tasks                             */
@@ -219,22 +229,50 @@ static  void  App_TaskStart (void *p_arg)
 
     while (DEF_TRUE) {                                          /* Task body, always written as an infinite loop.       */
 
-        gear = readADC(POT);
-        // 1024
-        GEAR_R = gear < (1024/8*1) ;
-        GEAR_N = gear < (1024/8*2) ;
-        GEAR_1 = gear < (1024/8*3) ;
-        GEAR_2 = gear < (1024/8*4) ;
-        GEAR_3 = gear < (1024/8*5) ;
-        GEAR_4 = gear < (1024/8*6) ;
-        GEAR_5 = gear < (1024/8*7) ;
-        GEAR_6 = gear < (1024/8*8) ;
+      if( GEAR_UP )
+      {
+        gear++;
+      }
+      if( GEAR_DOWN )
+      {
+          gear--;
+      }
 
-      /*
-      BLUE =var;
-      GREEN = var;
-      RED = var;
-*/
+      if ( gear > -1 || gear < 7) {
+        GEAR_R = 0 ;
+        GEAR_N = 0 ;
+        GEAR_1 = 0 ;
+        GEAR_2 = 0 ;
+        GEAR_3 = 0 ;
+        GEAR_4 = 0 ;
+        GEAR_5 = 0 ;
+        GEAR_6 = 0 ;
+        switch(gear) {
+          case 0:
+            GEAR_N = 1;
+          break;
+          case 1:
+            GEAR_1 = 1;
+            break;
+            case 2:
+            GEAR_2 = 1;
+            break;
+            case 3:
+            GEAR_3 = 1;
+            break;
+            case 4:
+            GEAR_4 = 1;
+            break;
+            case 5:
+            GEAR_5 = 1;
+            break;
+            case 6:
+            GEAR_6 = 1;
+            break;
+
+        }
+      }
+
     }
 }
 
@@ -263,7 +301,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Up Shift",
             (OS_TASK_PTR)upShift,
             (void *)0,
-            (OS_PRIO )4,
+            (OS_PRIO )3,
             (CPU_STK *)&upShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -278,7 +316,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Down Shift",
             (OS_TASK_PTR)downShift,
             (void *)0,
-            (OS_PRIO )4,
+            (OS_PRIO )3,
             (CPU_STK *)&downShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -293,7 +331,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Auto Shift",
             (OS_TASK_PTR)autoShift,
             (void *)0,
-            (OS_PRIO )3,
+            (OS_PRIO )4,
             (CPU_STK *)&autoShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -308,7 +346,7 @@ static  void  App_TaskCreate (void)
             (CPU_CHAR *)"Manual Shift",
             (OS_TASK_PTR)manualShift,
             (void *)0,
-            (OS_PRIO )3,
+            (OS_PRIO )4,
             (CPU_STK *)&manualShiftStk[0],
             (CPU_STK_SIZE)0,
             (CPU_STK_SIZE)512,
@@ -409,47 +447,40 @@ static void  modeSwitch(void)
 //Transmission Functions
 static void  autoShift(void *data)
 {
-    //Create Structure to hold engine/gear data
-    struct Data car;
     OS_ERR err;
     CPU_TS ts;
-    int32_t RPM_Dat = 0;
+
+    float RPM = 0;
 
     while(1)
     {
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FILL IN THIS SHIT!!!!!!!!!!!!!!!!!!!!!!
-        //Get data for RPM and current gear
-        //car.RPM = ;
-        //car.MaxRPM = ;
-        //car.GearCurrent = ;
-        //car.GearMax = ;
-        // RPM_Dat = readADC(POT);
+        //Get RPM data
+        RPM = readADC(POT);
 
         //Check if push button triggers manual mode
-        /*if(modePin == 1 )
+        if(MODE_SWITCH == 1 )
         {
             OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
         }
-        */
-
 
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
         {
             OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
         }
-        //If RPM is within 5% of redline shift up
-        if(car.RPM >= (0.95*car.MaxRPM))
+        //If RPM is within 5% of maximum shift up
+        if(RPM >= (0.95*MaxRPM))
         {
-            upShift();
+            OSTaskSemPost(&upShiftTCB,OS_OPT_POST_NONE,&err);
             break;
         }
         //If RPM is falling shift to lower gear
-        if(car.RPM <= 1350)
+        if(RPM <= 0.15*MaxRPM)
         {
-            downShift();
+            OSTaskSemPost(&downShiftTCB,OS_OPT_POST_NONE,&err);
             break;
         }
+        
         //Now send the data to the shiftLight task and pend
         OSTaskSemPost(&shiftLightTCB,OS_OPT_POST_NONE,&err);
         OSTaskSemPend(10000, OS_OPT_PEND_BLOCKING, &ts, &err);
@@ -462,26 +493,21 @@ static void  manualShift(void *data)
 {
     OS_ERR err;
     CPU_TS ts;
-    int upShiftPin = 0;
-    int downShiftPin = 0;
+    float RPM = 0;
 
     //Pend waiting for autoShift to go to sleep
     OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
     while(1)
     {
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!FILL IN THIS SHIT!!!!!!!!!!!!!!!!!!!!!!
-        //Get data for RPM and current gear
-        //car.RPM = ;
-        //car.MaxRPM = ;
-        //car.GearCurrent = ;
-        //car.GearMax = ;
+        //Get RPM data
+        RPM = readADC(POT);
 
         //Check if push button triggers automatic mode
-        /*if(modePin == 1 )
+        if(MODE_SWITCH == 1 )
         {
             OSTaskSemPost(&modeTCB,OS_OPT_POST_NONE,&err);
         }
-        */
+
 
        //Check if return to auto shift mode required
        if(mode == 0)
@@ -490,69 +516,127 @@ static void  manualShift(void *data)
        }
 
        //Check if Neutral shift activated
-       if( upShiftPin == 1 && downShiftPin == 1 )
+       if( GEAR_UP && GEAR_DOWN )
        {
-
+           GearCurrent = 0;
+           break;
        }
 
        //UP Shift triggered
-       if( upShiftPin == 1 && downShiftPin == 0 )
+       else if( GEAR_UP )
        {
-           upShift();
+           OSTaskSemPost(&upShiftTCB,OS_OPT_POST_NONE,&err);
            break;
        }
        //Down Shift triggered
-       if( downShiftPin == 1 && upShiftPin == 0 )
+       else if( GEAR_DOWN )
        {
-           downShift();
+           OSTaskSemPost(&downShiftTCB,OS_OPT_POST_NONE,&err);
            break;
        }
+       
+       //Now send the data to the shiftLight task and pend
+        OSTaskSemPost(&shiftLightTCB,OS_OPT_POST_NONE,&err);
+        OSTaskSemPend(10000, OS_OPT_PEND_BLOCKING, &ts, &err);
 
     }
 }
 
 //Function to shift up one gear
-void  upShift()
+static void  upShift(void *data)
 {
-
+    OS_ERR err;
+    CPU_TS ts;
+    
+    //Wait forever until triggered for the first time
+    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+    
+    //Up Shift a gear once called
+    while(1)
+    {
+        //Shift up a gear if not max gear
+        if( GearCurrent != 6 && GearCurrent != 7)
+        {
+            GearCurrent = GearCurrent + 1;
+        }
+        
+        //If Currently in reverse go to neutral
+        else if( GearCurrent == 7)
+        {
+            GearCurrent = 0;
+        }
+        
+        //Pend until triggered again and start loop over
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+        
+    }
+    
 }
 
 //Function to shift down one gear
-void  downShift()
+static void  downShift(void *data)
 {
+    OS_ERR err;
+    CPU_TS ts;
+    
+    //Wait forever until triggered for the first time
+    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+    
+    //Down Shift a gear once called
+    while(1)
+    {
+        if( GearCurrent != 0 && GearCurrent != 7)
+        {
+            GearCurrent = GearCurrent - 1;
+        }
+        
+        //If Currently in neutral go to reverse
+        else if( GearCurrent == 0)
+        {
+            GearCurrent = 7;
+        }
+        
+        //Pend until triggered again and start loop over
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+        
+    }
 
 }
 
 static void  shiftLight(void *data)
 {
-    struct Data car;
     OS_ERR err;
     CPU_TS ts;
+    int RPM = 1024;
 
-    //LED order BGR
-    int8_t LED = 00000000;
-    //Output to shift light and gear display
-    //Green LED no shift needed
+
+    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
     while(1)
     {
         OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
 
-        if( car.RPM < (0.81 * car.MaxRPM ))
+        if( RPM < (0.81*MaxRPM ))
         {
             //Light Green LED pin others 0
-            LED = 0b00000010;
+            GREEN = 1;
+            BLUE = 0;
+            RED = 0;
             break;
         }
         //Blue LED shift soon
-        if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.95*car.MaxRPM))
+        if( RPM >= (0.81*MaxRPM) && RPM < (0.96*MaxRPM))
         {
-            LED = 0b00000100;
+            BLUE = 1;
+            GREEN = 0;
+            RED = 0;
             break;
         }
         //Red LED, Drive like you stole it
-        if( car.RPM >= ( 0.95 * car.MaxRPM ))
+        if( RPM >= (0.95 * MaxRPM))
         {
-            LED = 0b00000001;
+            RED = 1;
+            BLUE = 0;
+            GREEN = 0;
             break;
         }
     }
