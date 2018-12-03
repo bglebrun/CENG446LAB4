@@ -24,6 +24,23 @@
 static  OS_TCB    App_TaskStartTCB;
 static  CPU_STK   App_TaskStartStk[APP_CFG_TASK_START_STK_SIZE];
 
+static OS_TCB  upShiftTCB;
+static CPU_STK upShiftStk[APP_CFG_TASK_START_STK_SIZE];
+
+static OS_TCB  downShiftTCB;
+static CPU_STK downShiftStk[APP_CFG_TASK_START_STK_SIZE];
+
+static OS_TCB  autoShiftTCB;
+static CPU_STK autoShiftStk[APP_CFG_TASK_START_STK_SIZE];
+
+static OS_TCB  manualShiftTCB;
+static CPU_STK manualShiftStk[APP_CFG_TASK_START_STK_SIZE];
+
+static OS_TCB  inputTCB;
+static CPU_STK inputStk[APP_CFG_TASK_START_STK_SIZE];
+
+int mode = 0;
+
 /*
 *********************************************************************************************************
 *                                         FUNCTION PROTOTYPES
@@ -34,6 +51,23 @@ static  void  App_TaskCreate  (void);
 static  void  App_ObjCreate   (void);
 
 static  void  App_TaskStart   (void  *p_arg);
+
+static void  upShift(void *data);
+static void  downShift(void *data);
+static void  autoShift(void *data);
+static void  manualShift(void *data);
+static void  input(void *data);
+
+
+//Data structure to hold all info passed from PC
+struct Data
+{
+	float RPM;
+    float MaxRPM;
+	int GearCurrent;
+	int GearMax;
+	float Throttle;
+};
 
 /*
 *********************************************************************************************************
@@ -49,13 +83,16 @@ int  main (void)
 {
     OS_ERR   os_err;
 
-    CPU_Init();                                                           /* Initialize the uC/CPU services                           */
-
+    CPU_Init();                                                           
+    /* Initialize the uC/CPU services                           */
     BSP_IntDisAll();
 
-    OSInit(&os_err);                                                      /* Init uC/OS-III.                                          */
+    OSInit(&os_err); 
+    /* Init uC/OS-III.                                          */
+    
 
-    OSTaskCreate((OS_TCB      *)&App_TaskStartTCB,                        /* Create the start task                                    */
+    OSTaskCreate((OS_TCB      *)&App_TaskStartTCB,                        
+    /* Create the start task                                    */
                  (CPU_CHAR    *)"Start",
                  (OS_TASK_PTR  )App_TaskStart,
                  (void        *)0,
@@ -137,6 +174,82 @@ static  void  App_TaskStart (void *p_arg)
 
 static  void  App_TaskCreate (void)
 {
+    OS_ERR err;
+    
+    //Create Shift Up Task
+    OSTaskCreate((OS_TCB *)&upShiftTCB,
+            (CPU_CHAR *)"Up Shift",
+            (OS_TASK_PTR)upShift,
+            (void *)0,
+            (OS_PRIO )5,
+            (CPU_STK *)&upShiftStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
+    
+    //Create Shift Down Task
+    OSTaskCreate((OS_TCB *)&downShiftTCB,
+            (CPU_CHAR *)"Down Shift",
+            (OS_TASK_PTR)downShift,
+            (void *)0,
+            (OS_PRIO )5,
+            (CPU_STK *)&downShiftStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
+    
+    //Create Automatic Shift Task
+    OSTaskCreate((OS_TCB *)&autoShiftTCB,
+            (CPU_CHAR *)"Auto Shift",
+            (OS_TASK_PTR)autoShift,
+            (void *)0,
+            (OS_PRIO )3,
+            (CPU_STK *)&autoShiftStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
+    
+    //Create Manual Shift Task
+    OSTaskCreate((OS_TCB *)&manualShiftTCB,
+            (CPU_CHAR *)"Manual Shift",
+            (OS_TASK_PTR)manualShift,
+            (void *)0,
+            (OS_PRIO )4,
+            (CPU_STK *)&manualShiftStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
+    
+    //Create toggleMode task
+    OSTaskCreate((OS_TCB *)&inputTCB,
+            (CPU_CHAR *)"A/M mode Control",
+            (OS_TASK_PTR)input,
+            (void *)0,
+            (OS_PRIO )2,
+            (CPU_STK *)&inputStk[0],
+            (CPU_STK_SIZE)0,
+            (CPU_STK_SIZE)512,
+            (OS_MSG_QTY)0,
+            (OS_TICK )0,
+            (void *)0,
+            (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
+            (OS_ERR *)&err);
 }
 
 
@@ -157,5 +270,62 @@ static  void  App_TaskCreate (void)
 */
 
 static  void  App_ObjCreate (void)
+{
+}
+
+//Transmission Functions
+static void  autoShift(void *data)
+{
+    //Create Structure to hold engine/gear data
+    struct Data car;
+    OS_ERR err;
+    CPU_TS ts;
+    
+    while(1)
+    {
+        //If manual mode activated pend and allow scheduler to go to manual mode
+        if(mode == 1)
+        {
+            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+        }
+        //If RPM is within 5% of redline shift up
+        if(car.RPM >= (0.95*car.MaxRPM))
+        {
+            upShift(&car);
+        }
+        //If RPM is falling shift to lower gear
+        if(car.RPM <= 1350)
+        {
+            downShift(&car);
+        }
+    }
+}
+    
+//Task to shift using the paddle shifters
+static void  manualShift(void *data)
+{
+    OS_ERR err;
+    CPU_TS ts;
+    
+    //Pend waiting for autoShift to go to sleep
+    OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+    while(1)
+    {
+       if(mode == 0)
+       {
+           OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
+       }
+           
+    }
+}
+
+//Function to shift up one gear
+static void  upShift(void *data)
+{
+    car.
+}
+
+//Function to shift down one gear
+static void  downShift(void *data)
 {
 }
