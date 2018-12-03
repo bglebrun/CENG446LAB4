@@ -544,7 +544,7 @@ static void  shiftLight(void *data)
             break;
         }
         //Blue LED shift soon
-        if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.96*car.MaxRPM))
+        if( car.RPM >= (0.81 * car.MaxRPM) && car.RPM < (0.95*car.MaxRPM))
         {
             LED = 0b00000100;
             break;
