@@ -56,8 +56,8 @@ static  void  App_ObjCreate   (void);
 
 static  void  App_TaskStart   (void  *p_arg);
 
-static void  upShift(void *data);
-static void  downShift(void *data);
+static void  upShift();
+static void  downShift();
 static void  autoShift(void *data);
 static void  manualShift(void *data);
 static void  modeSwitch(void);
@@ -88,15 +88,15 @@ int  main (void)
 {
     OS_ERR   os_err;
 
-    CPU_Init();                                                           
+    CPU_Init();
     /* Initialize the uC/CPU services                           */
     BSP_IntDisAll();
 
-    OSInit(&os_err); 
+    OSInit(&os_err);
     /* Init uC/OS-III.                                          */
-    
 
-    OSTaskCreate((OS_TCB      *)&App_TaskStartTCB,                        
+
+    OSTaskCreate((OS_TCB      *)&App_TaskStartTCB,
     /* Create the start task                                    */
                  (CPU_CHAR    *)"Start",
                  (OS_TASK_PTR  )App_TaskStart,
@@ -149,6 +149,8 @@ static  void  App_TaskStart (void *p_arg)
     CPU_IntDisMeasMaxCurReset();
 #endif
 
+    // mPortAConfig(IOPORT_BIT_24);
+
     App_TaskCreate();                                           /* Create Application tasks                             */
 
     App_ObjCreate();                                            /* Create Applicaiton kernel objects                    */
@@ -180,7 +182,7 @@ static  void  App_TaskStart (void *p_arg)
 static  void  App_TaskCreate (void)
 {
     OS_ERR err;
-    
+
     //Create Shift Up Task
     OSTaskCreate((OS_TCB *)&upShiftTCB,
             (CPU_CHAR *)"Up Shift",
@@ -195,7 +197,7 @@ static  void  App_TaskCreate (void)
             (void *)0,
             (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
             (OS_ERR *)&err);
-    
+
     //Create Shift Down Task
     OSTaskCreate((OS_TCB *)&downShiftTCB,
             (CPU_CHAR *)"Down Shift",
@@ -210,7 +212,7 @@ static  void  App_TaskCreate (void)
             (void *)0,
             (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
             (OS_ERR *)&err);
-    
+
     //Create Automatic Shift Task
     OSTaskCreate((OS_TCB *)&autoShiftTCB,
             (CPU_CHAR *)"Auto Shift",
@@ -225,7 +227,7 @@ static  void  App_TaskCreate (void)
             (void *)0,
             (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
             (OS_ERR *)&err);
-    
+
     //Create Manual Shift Task
     OSTaskCreate((OS_TCB *)&manualShiftTCB,
             (CPU_CHAR *)"Manual Shift",
@@ -240,7 +242,7 @@ static  void  App_TaskCreate (void)
             (void *)0,
             (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
             (OS_ERR *)&err);
-    
+
     //Create toggleMode task
     OSTaskCreate((OS_TCB *)&modeTCB,
             (CPU_CHAR *)"A/M mode Control",
@@ -255,7 +257,7 @@ static  void  App_TaskCreate (void)
             (void *)0,
             (OS_OPT)(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
             (OS_ERR *)&err);
-    
+
     //Create task for shift light
     OSTaskCreate((OS_TCB *)&shiftLightTCB,
             (CPU_CHAR *)"Shift Light",
@@ -301,14 +303,14 @@ static void  modeSwitch(void)
 {
     OS_ERR err;
     CPU_TS ts;
-    
-    
-    
+
+
+
     while(1)
     {
         //Wait forever until interrupt triggers mode change
         OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
-        
+
         //Once ISR triggers function toggle mode
         if( mode == 0 )
         {
@@ -322,7 +324,7 @@ static void  modeSwitch(void)
             //After mode toggled return to pending state
             break;
         }
-    } 
+    }
 }
 
 //Transmission Functions
@@ -332,13 +334,13 @@ static void  autoShift(void *data)
     struct Data car;
     OS_ERR err;
     CPU_TS ts;
-    
+
     while(1)
     {
         //Get data for RPM and current gear
         //car.RPM = ;
         //car.GearCurrent = ;
-        
+
         //If manual mode activated pend and allow scheduler to go to manual mode
         if(mode == 1)
         {
@@ -359,16 +361,16 @@ static void  autoShift(void *data)
         //Now send the data to the shiftLight task and pend
         shiftLight(&car);
         OSTaskSemPend(10000, OS_OPT_PEND_BLOCKING, &ts, &err);
-        
+
     }
 }
-    
+
 //Task to shift using the paddle shifters
 static void  manualShift(void *data)
 {
     OS_ERR err;
     CPU_TS ts;
-    
+
     //Pend waiting for autoShift to go to sleep
     OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
     while(1)
@@ -377,26 +379,26 @@ static void  manualShift(void *data)
        {
            OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, &ts, &err);
        }
-           
+
     }
 }
 
 //Function to shift up one gear
-static void  upShift(void)
+static void  upShift()
 {
-    
+
 }
 
 //Function to shift down one gear
-static void  downShift(void)
+static void  downShift()
 {
-    
+
 }
 
 static void shiftLight(void *data)
 {
     //Output to shift light and gear display
-    
-    
-    
+
+
+
 }
